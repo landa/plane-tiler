@@ -1,9 +1,8 @@
 ////////////////////////////////////////////////////////////////////////
 //
-// slan_polygon_split.cpp
+// plane_tiler.cpp
 //
-// Presents a series of images with the ability to scroll through and
-// run an image processing algorithm on each one.
+// Splits a plane into tiles.
 //
 ////////////////////////////////////////////////////////////////////////
 
@@ -18,47 +17,56 @@ using namespace cv;
 using namespace std;
 
 typedef Rect PlaneSegment;
+
 class Tile {
-public:
-  int id;
-  Point tl, tr, br, bl;
-  Scalar color;
 
-  Tile(int id, Point tl, Point tr, Point br, Point bl, Scalar color) {
-    this->id = id;
-    this->tl = tl; this->tr = tr; this->br = br; this->bl = bl;
-    this->color = color;
-  }
+  public:
+    int id;
+    Point tl, tr, br, bl;
+    Scalar color;
+    static const double EPSILON = 0.001;
 
-  Rect getRect() {
-    return Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
-  }
+    Tile(int id, Point tl, Point tr, Point br, Point bl, Scalar color) {
+      this->id = id;
+      this->tl = tl; this->tr = tr; this->br = br; this->bl = bl;
+      this->color = color;
+    }
+
+    Rect getRect() {
+      return Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
+    }
+
+    bool operator<(const Tile& other) const {
+      if (tl.y == other.tl.y) { return tl.x < other.tl.x; }
+      return tl.y < other.tl.y;
+    }
+
 };
 
 const Scalar POINT_COLOR(0, 0, 255);
 const Scalar PLANE_COLOR(200, 255, 200);
 const Scalar BACKGROUND_COLOR(255, 255, 255);
-const int TILE_WIDTH = 50; // pixels
+const int TILE_WIDTH = 100; // pixels
 const int TILE_HEIGHT = TILE_WIDTH; // pixels
 const int CANVAS_WIDTH = 1200;
 const int CANVAS_HEIGHT = 800;
 const int EXPAND_WIDTH = 30;
 const int EXPAND_HEIGHT = 20;
+const int NUM_PLANE_SEGMENTS = 1;
 
 Mat canvas(CANVAS_HEIGHT, CANVAS_WIDTH, CV_8UC3);
-PlaneSegment planes[2] = {
-  PlaneSegment(400, 200, 100, 100),
-  PlaneSegment(725, 200, 100, 100)
+PlaneSegment planes[NUM_PLANE_SEGMENTS] = {
+  //PlaneSegment(400, 200, 100, 100),
+  //PlaneSegment(725, 200, 100, 100)
+  PlaneSegment(CANVAS_WIDTH/2-50, CANVAS_HEIGHT/2-50, 100, 100)
 };
 vector<Tile> tiles;
 int tile_id = 0;
 
-Scalar getRandomColor() {
-  int LO = 100;
-  int HI = 200;
-  return Scalar(LO + (float)rand()/((float)RAND_MAX/(HI-LO)),
-                LO + (float)rand()/((float)RAND_MAX/(HI-LO)),
-                LO + (float)rand()/((float)RAND_MAX/(HI-LO)));
+Scalar getRandomColor(int low = 100, int high = 200) {
+  return Scalar(low + (float)rand()/((float)RAND_MAX/(high-low)),
+                low + (float)rand()/((float)RAND_MAX/(high-low)),
+                low + (float)rand()/((float)RAND_MAX/(high-low)));
 }
 
 void drawPlaneSegment(PlaneSegment& plane) {
@@ -66,7 +74,7 @@ void drawPlaneSegment(PlaneSegment& plane) {
 }
 
 void drawPlaneSegments() {
-  for (int ii = 0; ii < 2; ++ii) {
+  for (int ii = 0; ii < NUM_PLANE_SEGMENTS; ++ii) {
     drawPlaneSegment(planes[ii]);
   }
 }
@@ -85,11 +93,12 @@ int findClosestTileToPlaneSegment(int x, int y) {
 }
 
 void drawTiles() {
+  sort(tiles.begin(), tiles.end());
   for (int ii = 0; ii < tiles.size(); ++ii) {
     Rect tile_rect = tiles[ii].getRect();
     rectangle(canvas, tile_rect, tiles[ii].color, 3);
     stringstream ss;
-    ss << tiles[ii].id;
+    ss << tiles[ii].id << "/" << ii;
     const char* tile_id = ss.str().c_str();
     Size text_size = getTextSize(tile_id, FONT_HERSHEY_COMPLEX_SMALL, 0.8, 1, NULL);
     Point text_location(tile_rect.x + tile_rect.width/2 - text_size.width/2, tile_rect.y + tile_rect.height/2 + text_size.height/2);
@@ -129,7 +138,7 @@ void generateTilesForPlaneSegment(PlaneSegment& plane) {
 }
 
 void generateTilesForPlaneSegments() {
-  for (int ii = 0; ii < 2; ++ii) {
+  for (int ii = 0; ii < NUM_PLANE_SEGMENTS; ++ii) {
     generateTilesForPlaneSegment(planes[ii]);
   }
 }
@@ -142,7 +151,7 @@ void expandPlaneSegment(PlaneSegment& plane) {
 }
 
 void expandPlaneSegments() {
-  for (int ii = 0; ii < 2; ++ii) {
+  for (int ii = 0; ii < NUM_PLANE_SEGMENTS; ++ii) {
     expandPlaneSegment(planes[ii]);
   }
 }
